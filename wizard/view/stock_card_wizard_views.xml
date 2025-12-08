@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Stock Card Wizard Form View -->
+    <record id="view_stock_card_wizard_form" model="ir.ui.view">
+        <field name="name">stock.card.wizard.form</field>
+        <field name="model">stock.card.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Stock Card Report">
+                <group>
+                    <group>
+                        <field name="date_from" widget="date"/>
+                        <field name="date_to" widget="date"/>
+                    </group>
+                    <group>
+                        <field name="warehouse_id" options="{'no_create': True, 'no_open': True}"/>
+                        <field name="brand_id" options="{'no_create': True, 'no_open': True}"/>
+                        <field name="product_ids" widget="many2many_tags" 
+                               options="{'no_create': True}"/>
+                    </group>
+                </group>
+                
+                <group>
+                    <group colspan="2">
+                        <div class="text-muted">
+                            <i class="fa fa-info-circle"/> 
+                            <b>Selection Guide:</b>
+                            <ul>
+                                <li>Select a <b>Brand</b> to filter products by brand</li>
+                                <li>Leave <b>Products</b> empty to include all products in the selected brand (or all products if no brand selected)</li>
+                                <li>Select specific <b>Products</b> to generate report only for those products</li>
+                            </ul>
+                        </div>
+                    </group>
+                </group>
+                
+                <footer>
+                    <button name="action_generate_report" 
+                            string="Generate PDF" 
+                            type="object" 
+                            class="btn-primary"/>
+                    <button string="Cancel" 
+                            class="btn-secondary" 
+                            special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <!-- Stock Card Wizard Action -->
+    <record id="action_stock_card_wizard" model="ir.actions.act_window">
+        <field name="name">Stock Card Report</field>
+        <field name="res_model">stock.card.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+        <field name="binding_model_id" ref="stock.model_stock_warehouse"/>
+        <field name="binding_view_types">form</field>
+    </record>
+
+    <!-- Menu Item under Warehouse Reporting -->
+    <menuitem id="menu_stock_card_report"
+              name="Stock Card"
+              parent="stock.menu_warehouse_report"
+              action="action_stock_card_wizard"
+              sequence="200"/>
+
+</odoo>

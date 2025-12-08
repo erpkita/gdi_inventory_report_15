@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Custom Paper Format for Stock Card Report -->
+    <record id="paperformat_stock_card_report" model="report.paperformat">
+        <field name="name">Stock Card Report Paperformat</field>
+        <field name="default" eval="False"/>
+        <field name="format">A4</field>
+        <field name="page_height">0</field>
+        <field name="page_width">0</field>
+        <field name="orientation">Landscape</field>
+        <field name="margin_top">10</field>
+        <field name="margin_bottom">15</field>
+        <field name="margin_left">7</field>
+        <field name="margin_right">7</field>
+        <field name="header_line" eval="False"/>
+        <field name="header_spacing">35</field>
+        <field name="dpi">90</field>
+    </record>
+
+    <!-- Report Definition -->
+    <record id="action_report_stock_card" model="ir.actions.report">
+        <field name="name">Stock Card Report</field>
+        <field name="model">stock.card.wizard</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">gdi_inventory_report_15.report_stock_card_document</field>
+        <field name="report_file">gdi_inventory_report_15.report_stock_card_document</field>
+        <field name="binding_model_id" ref="model_stock_card_wizard"/>
+        <field name="binding_type">report</field>
+        <field name="paperformat_id" ref="paperformat_stock_card_report"/>
+    </record>
+
+    <!-- QWeb Report Template -->
+    <template id="report_stock_card_document">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="doc">
+                <div class="page" style="font-family: Arial, sans-serif; padding: 10px; background: #ffffff;">
+                    
+                    <!-- Report Container -->
+                    <div style="margin: 0; background: #ffffff; padding: 10px;">
+                        
+                        <style>
+                            :root {
+                                --bg: #f6f9fc;
+                                --card: #ffffff;
+                                --border: #e5e7eb;
+                                --muted: #64748b;
+                            }
+                            
+                            .stock-card-container {
+                                font-family: 'Arial', sans-serif;
+                                color: #0f172a;
+                                font-size: 10pt;
+                            }
+                            
+                            .report-header {
+                                margin-bottom: 15px;
+                            }
+                            
+                            .report-title {
+                                margin: 0 0 6px;
+                                font-size: 14px;
+                                color: #0f172a;
+                                font-weight: bold;
+                            }
+                            
+                            .report-meta {
+                                font-size: 9pt;
+                                color: var(--muted);
+                                line-height: 1.6;
+                            }
+                            
+                            .stock-card-table {
+                                width: 100%;
+                                border-collapse: collapse;
+                                font-size: 8pt;
+                                margin-top: 10px;
+                            }
+                            
+                            .stock-card-table th,
+                            .stock-card-table td {
+                                border: 1px solid var(--border);
+                                padding: 4px 6px;
+                                vertical-align: middle;
+                            }
+                            
+                            .stock-card-table thead th {
+                                background: #f1f5f9;
+                                text-align: left;
+                                font-weight: 600;
+                                color: #0f172a;
+                            }
+                            
+                            .stock-card-table .right {
+                                text-align: right;
+                            }
+                            
+                            .stock-card-table .center {
+                                text-align: center;
+                            }
+                            
+                            .stock-card-table .in {
+                                color: #0f766e;
+                                font-weight: 600;
+                            }
+                            
+                            .stock-card-table .out {
+                                color: #991b1b;
+                                font-weight: 600;
+                            }
+                            
+                            .product-row {
+                                background: #dbeafe !important;
+                                font-weight: 700;
+                                color: #1e40af;
+                            }
+                            
+                            .opening-row {
+                                background: #f8fafc !important;
+                                font-style: italic;
+                            }
+                            
+                            .closing-row {
+                                background: #e0f2fe !important;
+                                font-weight: 700;
+                            }
+                            
+                            .no-wrap {
+                                white-space: nowrap;
+                            }
+                        </style>
+
+                        <div class="stock-card-container">
+                            
+                            <!-- Header -->
+                            <h1 class="report-title">STOCK CARD REPORT - MULTI PRODUCT</h1>
+                            <div class="report-meta">
+                                <strong>Warehouse:</strong> <t t-esc="data.get('warehouse', 'N/A')"/><br/>
+                                <strong>Brand:</strong> <t t-esc="data.get('brand', 'All Brands')"/><br/>
+                                <strong>Period:</strong> 
+                                <t t-esc="data.get('date_from_formatted', '')"/> - 
+                                <t t-esc="data.get('date_to_formatted', '')"/>
+                            </div>
+
+                            <!-- Stock Card Table -->
+                            <table class="stock-card-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 8%;">Date</th>
+                                        <th style="width: 20%;">Product</th>
+                                        <th style="width: 12%;">Reference</th>
+                                        <th style="width: 10%;">Doc Type</th>
+                                        <th style="width: 15%;">Source</th>
+                                        <th style="width: 15%;">Destination</th>
+                                        <th style="width: 7%;" class="center">IN</th>
+                                        <th style="width: 7%;" class="center">OUT</th>
+                                        <th style="width: 6%;" class="center">Balance</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    
+                                    <!-- Loop through each product -->
+                                    <t t-foreach="data.get('report_data', [])" t-as="product_data">
+                                        
+                                        <!-- Product Header Row -->
+                                        <tr class="product-row">
+                                            <td colspan="9">
+                                                <t t-if="product_data.get('product_code')">
+                                                    [<t t-esc="product_data['product_code']"/>] 
+                                                </t>
+                                                <t t-esc="product_data['product_name']"/>
+                                                - UoM: <t t-esc="product_data['uom']"/>
+                                            </td>
+                                        </tr>
+
+                                        <!-- Opening Balance Row -->
+                                        <tr class="opening-row">
+                                            <td><t t-esc="data.get('date_from_formatted', '')"/></td>
+                                            <td>Opening Balance</td>
+                                            <td colspan="6"></td>
+                                            <td class="center">
+                                                <t t-esc="'%.2f' % product_data['opening_balance']"/>
+                                            </td>
+                                        </tr>
+
+                                        <!-- Movement Rows -->
+                                        <t t-foreach="product_data.get('moves', [])" t-as="move">
+                                            <tr>
+                                                <td class="no-wrap">
+                                                    <t t-esc="move['date'].strftime('%d/%m/%Y')"/>
+                                                </td>
+                                                <td><t t-esc="move['product_name']"/></td>
+                                                <td><t t-esc="move['reference']"/></td>
+                                                <td><t t-esc="move['doc_type']"/></td>
+                                                <td><t t-esc="move['source']"/></td>
+                                                <td><t t-esc="move['destination']"/></td>
+                                                <td class="center">
+                                                    <t t-if="move['qty_in'] > 0">
+                                                        <span class="in">+<t t-esc="'%.2f' % move['qty_in']"/></span>
+                                                    </t>
+                                                    <t t-else="">-</t>
+                                                </td>
+                                                <td class="center">
+                                                    <t t-if="move['qty_out'] > 0">
+                                                        <span class="out">-<t t-esc="'%.2f' % move['qty_out']"/></span>
+                                                    </t>
+                                                    <t t-else="">-</t>
+                                                </td>
+                                                <td class="center">
+                                                    <t t-esc="'%.2f' % move['balance']"/>
+                                                </td>
+                                            </tr>
+                                        </t>
+
+                                        <!-- Closing Balance Row -->
+                                        <tr class="closing-row">
+                                            <td><t t-esc="data.get('date_to_formatted', '')"/></td>
+                                            <td>Closing Balance</td>
+                                            <td colspan="6"></td>
+                                            <td class="center">
+                                                <t t-esc="'%.2f' % product_data['closing_balance']"/>
+                                            </td>
+                                        </tr>
+
+                                    </t>
+
+                                </tbody>
+                            </table>
+
+                        </div>
+
+                    </div>
+
+                </div>
+            </t>
+        </t>
+    </template>
+
+</odoo>
