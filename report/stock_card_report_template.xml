@@ -75,11 +75,12 @@
                                 border-collapse: collapse;
                                 font-size: 8pt;
                                 margin-top: 10px;
+                                border: 1px solid #94a3b8;
                             }
                             
                             .stock-card-table th,
                             .stock-card-table td {
-                                border: 1px solid var(--border);
+                                border: 1px solid #cbd5e1;
                                 padding: 4px 6px;
                                 vertical-align: middle;
                             }
@@ -89,6 +90,7 @@
                                 text-align: left;
                                 font-weight: 600;
                                 color: #0f172a;
+                                border: 1px solid #cbd5e1;
                             }
                             
                             .stock-card-table .right {
@@ -113,16 +115,30 @@
                                 background: #dbeafe !important;
                                 font-weight: 700;
                                 color: #1e40af;
+                                border: 1px solid #cbd5e1;
                             }
                             
                             .opening-row {
                                 background: #f8fafc !important;
                                 font-style: italic;
+                                border: 1px solid #cbd5e1;
                             }
                             
                             .closing-row {
                                 background: #e0f2fe !important;
                                 font-weight: 700;
+                                border: 1px solid #cbd5e1;
+                            }
+                            
+                            .spacer-row {
+                                height: 15px;
+                                background: #ffffff !important;
+                                border: none !important;
+                            }
+                            
+                            .spacer-row td {
+                                border: none !important;
+                                padding: 0;
                             }
                             
                             .no-wrap {
@@ -133,7 +149,7 @@
                         <div class="stock-card-container">
                             
                             <!-- Header -->
-                            <h1 class="report-title">STOCK CARD REPORT - MULTI PRODUCT</h1>
+                            <h1 class="report-title">STOCK CARD REPORT</h1>
                             <div class="report-meta">
                                 <strong>Warehouse:</strong> <t t-esc="data.get('warehouse', 'N/A')"/><br/>
                                 <strong>Brand:</strong> <t t-esc="data.get('brand', 'All Brands')"/><br/>
@@ -220,6 +236,11 @@
                                             <td class="center">
                                                 <t t-esc="'%.2f' % product_data['closing_balance']"/>
                                             </td>
+                                        </tr>
+                                        
+                                        <!-- Spacer Row -->
+                                        <tr class="spacer-row">
+                                            <td colspan="9"></td>
                                         </tr>
 
                                     </t>
