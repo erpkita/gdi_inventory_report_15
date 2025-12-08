@@ -181,9 +181,9 @@
                                         <!-- Product Header Row -->
                                         <tr class="product-row">
                                             <td colspan="9">
-                                                <t t-if="product_data.get('product_code')">
+                                                <!-- <t t-if="product_data.get('product_code')">
                                                     [<t t-esc="product_data['product_code']"/>] 
-                                                </t>
+                                                </t> -->
                                                 <t t-esc="product_data['product_name']"/>
                                                 - UoM: <t t-esc="product_data['uom']"/>
                                             </td>

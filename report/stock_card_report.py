@@ -88,7 +88,7 @@ class StockCardReport(models.AbstractModel):
                 
                 move_lines.append({
                     'date': move.date,
-                    'product_name':f"({product.item_code_ref}) - {product.product_name}",
+                    'product_name': move.product_id.display_name,
                     'reference': move.picking_id.name if move.picking_id else (move.reference or ''),
                     'doc_type': self._get_move_type(move),
                     'source': move.location_id.complete_name or move.location_id.name,
@@ -100,7 +100,7 @@ class StockCardReport(models.AbstractModel):
             
             report_data.append({
                 'product': product,
-                'product_name': product.product_name,
+                'product_name': product.display_name,
                 'product_code': product.item_code_ref or '',
                 'uom': product.uom_id.name,
                 'opening_balance': opening_balance,
