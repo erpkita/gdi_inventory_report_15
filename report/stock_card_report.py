@@ -36,6 +36,7 @@ class StockCardReport(models.AbstractModel):
                 'date_from_formatted': wizard.date_from.strftime('%d/%m/%Y'),
                 'date_to_formatted': wizard.date_to.strftime('%d/%m/%Y'),
                 'warehouse': wizard.warehouse_id.name,
+                'location': f"{wizard.location_id.name} | {wizard.location_id.display_name}",
                 'brand': wizard.brand_id.name if wizard.brand_id else 'All Brands',
                 'report_data': report_data,
             },
@@ -49,22 +50,21 @@ class StockCardReport(models.AbstractModel):
         if not products:
             raise UserError(_('No products found with the selected criteria.'))
         
-        location_id = wizard.warehouse_id.lot_stock_id.id
-        
-        # Get all child locations
+        # Get all child locations once
         child_locations = self.env['stock.location'].search([
-            ('id', 'child_of', location_id)
+            ('id', 'child_of', wizard.location_id.id)
         ])
+        location_ids = child_locations.ids
         
         report_data = []
         
         for product in products:
             opening_balance = self._get_opening_balance(
-                product, location_id, wizard.date_from
+                product, location_ids, wizard.date_from
             )
             
             moves = self._get_stock_moves(
-                product, location_id, wizard.date_from, wizard.date_to
+                product, location_ids, wizard.date_from, wizard.date_to
             )
             
             move_lines = []
@@ -75,13 +75,13 @@ class StockCardReport(models.AbstractModel):
                 qty_out = 0
                 
                 # Check if destination is in warehouse (including child locations)
-                if move.location_dest_id.id in child_locations.ids:
+                if move.location_dest_id.id in location_ids:
                     # Incoming
                     qty_in = move.product_uom_qty
                     current_balance += qty_in
                 
                 # Check if source is in warehouse (including child locations)
-                if move.location_id.id in child_locations.ids:
+                if move.location_id.id in location_ids:
                     # Outgoing
                     qty_out = move.product_uom_qty
                     current_balance -= qty_out
@@ -124,19 +124,15 @@ class StockCardReport(models.AbstractModel):
             # Get all products
             return self.env['product.product'].search([])
 
-    def _get_opening_balance(self, product, location_id, date_from):
+    def _get_opening_balance(self, product, location_ids, date_from):
         """Calculate opening balance for a product at date_from"""
-        # Get all child locations
-        location = self.env['stock.location'].browse(location_id)
-        child_locations = self.env['stock.location'].search([
-            ('id', 'child_of', location_id)
-        ])
-        location_ids = child_locations.ids
-        
         domain = [
             ('product_id', '=', product.id),
             ('state', '=', 'done'),
-            ('date', '<', date_from)
+            ('date', '<', date_from),
+            '|',
+            ('location_id', 'in', location_ids),
+            ('location_dest_id', 'in', location_ids)
         ]
         
         moves = self.env['stock.move'].search(domain)
@@ -152,15 +148,8 @@ class StockCardReport(models.AbstractModel):
         
         return balance
 
-    def _get_stock_moves(self, product, location_id, date_from, date_to):
+    def _get_stock_moves(self, product, location_ids, date_from, date_to):
         """Get stock moves for a product within date range"""
-        # Get all child locations
-        location = self.env['stock.location'].browse(location_id)
-        child_locations = self.env['stock.location'].search([
-            ('id', 'child_of', location_id)
-        ])
-        location_ids = child_locations.ids
-        
         domain = [
             ('product_id', '=', product.id),
             ('state', '=', 'done'),

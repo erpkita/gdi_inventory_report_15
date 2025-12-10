@@ -25,6 +25,11 @@ class StockCardWizard(models.TransientModel):
         required=True,
         default=lambda self: self.env['stock.warehouse'].search([], limit=1)
     )
+    location_id = fields.Many2one(
+        'stock.location',
+        string='Location',
+        required=True,
+    )
     brand_id = fields.Many2one(
         'product.brand',
         string='Product Brand',
@@ -51,6 +56,22 @@ class StockCardWizard(models.TransientModel):
             return {
                 'domain': {
                     'product_ids': []
+                }
+            }
+    
+    @api.onchange('warehouse_id')
+    def _onchange_warehouse_id(self):
+        if self.warehouse_id:
+            warehouse_location_id = self.warehouse_id.lot_stock_id.id
+            return {
+                'domain': {
+                    'location_id': [('location_id', '=', warehouse_location_id)]
+                }
+            }
+        else:
+            return {
+                'domain': {
+                    'location_id': [('usage', '=', 'internal')]
                 }
             }
 

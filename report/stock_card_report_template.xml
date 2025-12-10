@@ -152,6 +152,7 @@
                             <h1 class="report-title">STOCK CARD REPORT</h1>
                             <div class="report-meta">
                                 <strong>Warehouse:</strong> <t t-esc="data.get('warehouse', 'N/A')"/><br/>
+                                <strong>Location:</strong> <t t-esc="data.get('location', 'N/A')"/><br/>
                                 <strong>Brand:</strong> <t t-esc="data.get('brand', 'All Brands')"/><br/>
                                 <strong>Period:</strong> 
                                 <t t-esc="data.get('date_from_formatted', '')"/> - 
