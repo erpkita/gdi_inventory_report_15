@@ -65,7 +65,7 @@ class StockCardWizard(models.TransientModel):
             warehouse_location_id = self.warehouse_id.lot_stock_id.id
             return {
                 'domain': {
-                    'location_id': [('location_id', '=', warehouse_location_id)]
+                    'location_id': ['|', ('id', '=', warehouse_location_id), ('location_id', '=', warehouse_location_id)]
                 }
             }
         else:
