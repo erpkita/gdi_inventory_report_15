@@ -41,6 +41,12 @@ class StockCardWizard(models.TransientModel):
         help='Select specific products. Leave empty to include all products (or all products in selected brand).'
     )
 
+    get_from_move_line = fields.Boolean(
+        string='Get Data from Stock Move Lines (Experimental)',
+        default=True,
+        help='If checked, data will be fetched from stock move lines for more accuracy.'
+    )
+
     @api.onchange('brand_id')
     def _onchange_brand_id(self):
         """Clear product selection and update domain when brand changes"""

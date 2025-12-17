@@ -2,30 +2,26 @@
 
 from odoo import api, models, fields, _
 from odoo.exceptions import UserError
-from datetime import datetime
 
 
 class StockCardReport(models.AbstractModel):
     _name = 'report.gdi_inventory_report_15.report_stock_card_document'
     _description = 'Stock Card Report'
 
+    # =====================================================
+    # MAIN
+    # =====================================================
     @api.model
     def _get_report_values(self, docids, data=None):
-        """Main method called by Odoo to generate report"""
         if not data:
-            raise UserError(_("Report data is missing, this report cannot be printed."))
+            raise UserError(_("Report data is missing."))
 
-        wizard_id = data.get('wizard_id')
-        
-        # Get wizard
-        wizard = self.env['stock.card.wizard'].browse(wizard_id)
-        
+        wizard = self.env['stock.card.wizard'].browse(data.get('wizard_id'))
         if not wizard.exists():
             raise UserError(_("Wizard data not found."))
-        
-        # Prepare report data
+
         report_data = self._prepare_report_data(wizard)
-        
+
         return {
             'doc_ids': docids,
             'doc_model': 'stock.card.wizard',
@@ -36,121 +32,88 @@ class StockCardReport(models.AbstractModel):
                 'date_from_formatted': wizard.date_from.strftime('%d/%m/%Y'),
                 'date_to_formatted': wizard.date_to.strftime('%d/%m/%Y'),
                 'warehouse': wizard.warehouse_id.name,
-                'location': f"{wizard.location_id.name} | {wizard.location_id.display_name}",
+                'location': wizard.location_id.complete_name,
                 'brand': wizard.brand_id.name if wizard.brand_id else 'All Brands',
+                'use_move_line': wizard.get_from_move_line,
                 'report_data': report_data,
             },
             'company': self.env.company,
         }
 
+    # =====================================================
+    # CORE LOGIC
+    # =====================================================
     def _prepare_report_data(self, wizard):
-        """Prepare data for the report"""
         products = self._get_products(wizard)
-        
         if not products:
-            raise UserError(_('No products found with the selected criteria.'))
-        
-        # Get all child locations once
-        child_locations = self.env['stock.location'].search([
+            raise UserError(_('No products found.'))
+
+        locations = self.env['stock.location'].search([
             ('id', 'child_of', wizard.location_id.id)
         ])
-        location_ids = child_locations.ids
-        
-        report_data = []
-        
+        location_ids = locations.ids
+
+        result = []
+
         for product in products:
-            opening_balance = self._get_opening_balance(
-                product, location_ids, wizard.date_from
-            )
-            
-            moves = self._get_stock_moves(
-                product, location_ids, wizard.date_from, wizard.date_to
-            )
-            
-            move_lines = []
-            current_balance = opening_balance
-            
-            for move in moves:
-                qty_in = 0
-                qty_out = 0
-                
-                # Check if destination is in warehouse (including child locations)
-                if move.location_dest_id.id in location_ids:
-                    # Incoming
-                    qty_in = move.product_uom_qty
-                    current_balance += qty_in
-                
-                # Check if source is in warehouse (including child locations)
-                if move.location_id.id in location_ids:
-                    # Outgoing
-                    qty_out = move.product_uom_qty
-                    current_balance -= qty_out
-                
-                move_lines.append({
-                    'date': move.date,
-                    'product_name': move.product_id.display_name,
-                    'reference': move.picking_id.name if move.picking_id else (move.reference or ''),
-                    'doc_type': self._get_move_type(move),
-                    'source': move.location_id.complete_name or move.location_id.name,
-                    'destination': move.location_dest_id.complete_name or move.location_dest_id.name,
-                    'qty_in': qty_in,
-                    'qty_out': qty_out,
-                    'balance': current_balance,
-                })
-            
-            report_data.append({
+            if wizard.get_from_move_line:
+                opening = self._opening_from_move_line(product, location_ids, wizard.date_from)
+                lines, closing = self._moves_from_move_line(
+                    product, location_ids, wizard.date_from, wizard.date_to, opening
+                )
+            else:
+                opening = self._opening_from_move(product, location_ids, wizard.date_from)
+                lines, closing = self._moves_from_move(
+                    product, location_ids, wizard.date_from, wizard.date_to, opening
+                )
+
+            result.append({
                 'product': product,
                 'product_name': product.display_name,
                 'product_code': product.item_code_ref or '',
                 'uom': product.uom_id.name,
-                'opening_balance': opening_balance,
-                'closing_balance': current_balance,
-                'moves': move_lines,
+                'opening_balance': opening,
+                'closing_balance': closing,
+                'moves': lines,
             })
-        
-        return report_data
 
+        return result
+
+    # =====================================================
+    # PRODUCT FILTER
+    # =====================================================
     def _get_products(self, wizard):
-        """Get products based on wizard selection"""
         if wizard.product_ids:
-            # Use selected products
             return wizard.product_ids
-        elif wizard.brand_id:
-            # Get all products from selected brand
+        if wizard.brand_id:
             return self.env['product.product'].search([
                 ('product_tmpl_id.brand_id', '=', wizard.brand_id.id)
             ])
-        else:
-            # Get all products
-            return self.env['product.product'].search([])
+        return self.env['product.product'].search([])
 
-    def _get_opening_balance(self, product, location_ids, date_from):
-        """Calculate opening balance for a product at date_from"""
-        domain = [
+    # =====================================================
+    # STOCK.MOVE VERSION
+    # =====================================================
+    def _opening_from_move(self, product, location_ids, date_from):
+        moves = self.env['stock.move'].search([
             ('product_id', '=', product.id),
             ('state', '=', 'done'),
             ('date', '<', date_from),
             '|',
             ('location_id', 'in', location_ids),
             ('location_dest_id', 'in', location_ids)
-        ]
-        
-        moves = self.env['stock.move'].search(domain)
-        
-        balance = 0
-        for move in moves:
-            if move.location_dest_id.id in location_ids:
-                # Incoming to warehouse or its child locations
-                balance += move.product_uom_qty
-            if move.location_id.id in location_ids:
-                # Outgoing from warehouse or its child locations
-                balance -= move.product_uom_qty
-        
+        ])
+
+        balance = 0.0
+        for m in moves:
+            if m.location_dest_id.id in location_ids:
+                balance += m.product_uom_qty
+            if m.location_id.id in location_ids:
+                balance -= m.product_uom_qty
         return balance
 
-    def _get_stock_moves(self, product, location_ids, date_from, date_to):
-        """Get stock moves for a product within date range"""
-        domain = [
+    def _moves_from_move(self, product, location_ids, date_from, date_to, opening):
+        moves = self.env['stock.move'].search([
             ('product_id', '=', product.id),
             ('state', '=', 'done'),
             ('date', '>=', date_from),
@@ -158,22 +121,113 @@ class StockCardReport(models.AbstractModel):
             '|',
             ('location_id', 'in', location_ids),
             ('location_dest_id', 'in', location_ids)
-        ]
-        
-        return self.env['stock.move'].search(domain, order='date asc, id asc')
+        ], order='date asc, id asc')
 
+        balance = opening
+        lines = []
+
+        for m in moves:
+            qty_in = qty_out = 0.0
+
+            if m.location_dest_id.id in location_ids:
+                qty_in = m.product_uom_qty
+                balance += qty_in
+            if m.location_id.id in location_ids:
+                qty_out = m.product_uom_qty
+                balance -= qty_out
+
+            lines.append({
+                'date': m.date,
+                'product_name': product.display_name,
+                'reference': m.picking_id.name if m.picking_id else (m.reference or ''),
+                'doc_type': self._get_move_type(m),
+                'source': m.location_id.complete_name,
+                'destination': m.location_dest_id.complete_name,
+                'lot': '',
+                'qty_in': qty_in,
+                'qty_out': qty_out,
+                'balance': balance,
+            })
+
+        return lines, balance
+
+    # =====================================================
+    # STOCK.MOVE.LINE VERSION (EXPERIMENTAL)
+    # =====================================================
+    def _opening_from_move_line(self, product, location_ids, date_from):
+        lines = self.env['stock.move.line'].search([
+            ('product_id', '=', product.id),
+            ('state', '=', 'done'),
+            ('date', '<', date_from),
+            '|',
+            ('location_id', 'in', location_ids),
+            ('location_dest_id', 'in', location_ids)
+        ])
+
+        balance = 0.0
+        for l in lines:
+            if l.location_dest_id.id in location_ids:
+                balance += l.qty_done
+            if l.location_id.id in location_ids:
+                balance -= l.qty_done
+        return balance
+
+    def _moves_from_move_line(self, product, location_ids, date_from, date_to, opening):
+        lines_rec = self.env['stock.move.line'].search([
+            ('product_id', '=', product.id),
+            ('state', '=', 'done'),
+            ('date', '>=', date_from),
+            ('date', '<=', date_to),
+            '|',
+            ('location_id', 'in', location_ids),
+            ('location_dest_id', 'in', location_ids)
+        ], order='date asc, id asc')
+
+        balance = opening
+        lines = []
+
+        for l in lines_rec:
+            qty_in = qty_out = 0.0
+
+            if l.location_dest_id.id in location_ids:
+                qty_in = l.qty_done
+                balance += qty_in
+            if l.location_id.id in location_ids:
+                qty_out = l.qty_done
+                balance -= qty_out
+
+            lines.append({
+                'date': l.date,
+                'product_name': product.display_name,
+                'reference': (
+                    l.move_id.picking_id.name
+                    if l.move_id.picking_id
+                    else l.move_id.reference or ''
+                ),
+                'doc_type': self._get_move_type(l.move_id),
+                'source': l.location_id.complete_name,
+                'destination': l.location_dest_id.complete_name,
+                'lot': l.lot_id.name if l.lot_id else '',
+                'qty_in': qty_in,
+                'qty_out': qty_out,
+                'balance': balance,
+            })
+
+        return lines, balance
+
+    # =====================================================
+    # DOC TYPE
+    # =====================================================
     def _get_move_type(self, move):
-        """Determine document type from move"""
         if move.picking_id:
-            picking_type = move.picking_id.picking_type_id
-            if picking_type.code == 'incoming':
-                return 'Receipt'
-            elif picking_type.code == 'outgoing':
-                return 'Delivery'
-            elif picking_type.code == 'internal':
-                return 'Internal Transfer'
-        
-        if move.picking_id or 'inventory' in (move.origin or '').lower():
+            code = move.picking_id.picking_type_id.code
+            return {
+                'incoming': 'Receipt',
+                'outgoing': 'Delivery',
+                'internal': 'Internal Transfer',
+            }.get(code, 'Movement')
+
+        if move.inventory_id:
             return 'Adjustment'
-        
+
         return 'Movement'
