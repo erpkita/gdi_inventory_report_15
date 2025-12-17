@@ -11,7 +11,7 @@
                     <group>
                         <field name="date_from" widget="date"/>
                         <field name="date_to" widget="date"/>
-                        <field name="get_from_move_line"/>
+                        <field name="get_from_move_line" invisible="1"/>
                     </group>
                     <group>
                         <field name="warehouse_id" options="{'no_create': True, 'no_open': True}"/>
