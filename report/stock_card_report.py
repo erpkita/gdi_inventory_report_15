@@ -227,7 +227,7 @@ class StockCardReport(models.AbstractModel):
                 'internal': 'Internal Transfer',
             }.get(code, 'Movement')
 
-        if move.inventory_id:
+        if move.picking_id:
             return 'Adjustment'
 
         return 'Movement'
